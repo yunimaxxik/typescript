@@ -1,85 +1,118 @@
-import Cart from '../service/Cart';
-import Buyable from '../domain/Buyable';
+import Cart from '../service/Cart'
+import Buyable from '../domain/Buyable'
 
-const book: Buyable = {
+const uniqueItem: Buyable = {
 	id: 1,
-	name: 'Book',
-	price: 350,
-};
-
-const movie: Buyable = {
-	id: 2,
-	name: 'Movie',
+	name: 'Электронная книга',
 	price: 500,
-};
+	multiple: false,
+}
 
-describe('Cart', () => {
-	let cart: Cart;
+const multiItem: Buyable = {
+	id: 2,
+	name: 'Смартфон',
+	price: 30000,
+	multiple: true,
+}
+
+describe('cart', () => {
+	let cart: Cart
 
 	beforeEach(() => {
-		cart = new Cart();
-	});
+		cart = new Cart()
+	})
 
-	describe('costWithoutDiscount', () => {
-		test('Должна вернуть 0 для пустой корзины', () => {
-			expect(cart.costWithoutDiscount()).toBe(0);
-		});
+	describe('добавление товара', () => {
+		test('должен добавлять уникальный товар только один раз', () => {
+			cart.add(uniqueItem)
+			cart.add(uniqueItem) // повторное добавление игнорируется
+			expect(cart.items).toHaveLength(1)
+			expect(cart.items[0].count).toBe(1)
+		})
 
-		test('Должна посчитать сумму всех товаров', () => {
-			cart.add(book);
-			cart.add(movie);
-			expect(cart.costWithoutDiscount()).toBe(350 + 500);
-		});
-	});
+		test('должен увеличивать количество для множественных товаров', () => {
+			cart.add(multiItem)
+			cart.add(multiItem)
+			expect(cart.items).toHaveLength(1)
+			expect(cart.items[0].count).toBe(2)
+		})
+	})
 
-	describe('costWithDiscount', () => {
-		test('Должна посчитать сумму вместо со скидкой', () => {
-			cart.add(book);
-			cart.add(movie);
-			expect(cart.costWithDiscount(5)).toBe(850 * 0.95);
-		});
+	describe('удаление товара', () => {
+		test('должен полностью удалять товар независимо от количества', () => {
+			cart.add(multiItem)
+			cart.add(multiItem) // количество = 2
+			cart.delete(multiItem.id)
+			expect(cart.items).toHaveLength(0)
+		})
 
-		test('Должна вернуть 0 при скидки 100%', () => {
-			cart.add(book);
-			expect(cart.costWithDiscount(100)).toBe(0);
-		});
+		test('не должен ничего делать, если id не найден', () => {
+			cart.add(uniqueItem)
+			cart.delete(999)
+			expect(cart.items).toHaveLength(1)
+		})
+	})
 
-		test('Должна работать со скидкой в 0%', () => {
-			cart.add(movie);
-			expect(cart.costWithDiscount(0)).toBe(cart.costWithoutDiscount());
-		});
+	describe('уменьшение количества', () => {
+		test('должен уменьшать количество для множественных товаров', () => {
+			cart.add(multiItem)
+			cart.add(multiItem) // количество = 2
+			cart.decreaseQuantity(multiItem.id)
+			expect(cart.items[0].count).toBe(1)
+		})
 
-		test('Должна вернуть 0 для пустого массива', () => {
-			expect(cart.costWithDiscount(10)).toBe(0);
-		});
-	});
+		test('должен удалять товар, когда количество становится 0', () => {
+			cart.add(multiItem) // количество = 1
+			cart.decreaseQuantity(multiItem.id)
+			expect(cart.items).toHaveLength(0)
+		})
 
-	describe('delete', () => {
-		test('Должна удалять товар по его ID', () => {
-			cart.add(book);
-			cart.add(movie);
-			cart.delete(book.id);
-			expect(cart.items).toEqual([movie]);
-		});
+		test('не должен ничего делать для уникальных товаров', () => {
+			cart.add(uniqueItem)
+			cart.decreaseQuantity(uniqueItem.id)
+			expect(cart.items).toHaveLength(1)
+			expect(cart.items[0].count).toBe(1)
+		})
 
-		test('Ничего не удаляет если неверное ID', () => {
-			cart.add(book);
-			cart.delete(999);
-			expect(cart.items).toEqual([book]);
-		});
+		test('не должен ничего делать, если id не найден', () => {
+			cart.decreaseQuantity(999)
+			expect(cart.items).toHaveLength(0)
+		})
+	})
 
-		test('Должен ничего не делать, когда корзина пуста', () => {
-			expect(() => cart.delete(1)).not.toThrow();
-			expect(cart.items).toEqual([]);
-		});
-	});
+	describe('расчёт стоимости без скидки', () => {
+		test('должен возвращать 0 для пустой корзины', () => {
+			expect(cart.costWithoutDiscount()).toBe(0)
+		})
 
-	describe('items getter', () => {
-		test('Должна вернуть массив товаров', () => {
-			cart.add(book);
-			const returned = cart.items;
-			expect(returned).toEqual([book]);
-			expect(returned).not.toBe(cart['_items']);
-		});
-	});
-});
+		test('должен считать сумму с учётом количества', () => {
+			cart.add(uniqueItem) // 500
+			cart.add(multiItem)
+			cart.add(multiItem) // 2 * 30000 = 60000
+			expect(cart.costWithoutDiscount()).toBe(500 + 60000)
+		})
+	})
+
+	describe('расчёт стоимости со скидкой', () => {
+		test('должен правильно применять скидку', () => {
+			cart.add(uniqueItem) // 500
+			cart.add(multiItem) // 30000
+			// 30500 - 10% = 27450
+			expect(cart.costWithDiscount(10)).toBe(30500 * 0.9)
+		})
+
+		test('должен работать со скидкой 0%', () => {
+			cart.add(uniqueItem)
+			expect(cart.costWithDiscount(0)).toBe(cart.costWithoutDiscount())
+		})
+	})
+
+	describe('геттер items', () => {
+		test('должен возвращать копию внутреннего массива', () => {
+			cart.add(multiItem)
+			const товары = cart.items
+			expect(товары).toEqual([{ item: multiItem, count: 1 }])
+			expect(товары).not.toBe(cart['_items']) // разные ссылки
+		})
+	})
+})

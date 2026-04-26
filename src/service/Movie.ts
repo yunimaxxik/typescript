@@ -1,4 +1,4 @@
-import Movie from '../domain/Movie';
+import Movie from '../domain/Movie'
 
 export default class MovieImpl implements Movie {
 	constructor(

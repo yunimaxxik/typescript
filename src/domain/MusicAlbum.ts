@@ -1,4 +1,4 @@
-import Buyable from './Buyable';
+import Buyable from './Buyable'
 
 export default class MusicAlbum implements Buyable {
 	constructor(
